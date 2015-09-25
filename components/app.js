@@ -7,11 +7,13 @@ var Header = require('./parts/header');
 
 var APP = React.createClass({
 
-    getInitialState() {
+    getInitialState() { //from the server app-server.js
       return {
           status: 'disconnected',
           title: '',
-          dance: 'yes please'
+          member: {}, //user of this current socket
+          audience: [],
+          speaker: ''
       }
     },
 
@@ -19,10 +21,24 @@ var APP = React.createClass({
         this.socket = io('http://localhost:3000');
         this.socket.on('connect', this.connect);
         this.socket.on('disconnect', this.disconnect);
-        this.socket.on('welcome', this.welcome);
+        this.socket.on('welcome', this.updateState);
+        this.socket.on('joined', this.joined);
+        this.socket.on('audience', this.updateAudience);
+        this.socket.on('start', this.updateState);
+    },
+
+    emit(eventName, payload) {
+        this.socket.emit(eventName, payload);
     },
 
     connect() {
+
+        var member = (sessionStorage.member) ? JSON.parse(sessionStorage.member) : null;
+
+        if (member) {
+            this.emit('join', member);
+        }
+
         this.setState({ status: 'connected'});
     },
 
@@ -30,15 +46,24 @@ var APP = React.createClass({
         this.setState({ status: 'disconnected'});
     },
 
-    welcome(serverState) {
-      this.setState({title: serverState.title});
+    updateState(serverState) {
+      this.setState(serverState);
+    },
+
+    joined(member) {
+        sessionStorage.member = JSON.stringify(member);
+        this.setState({ member: member}); //set member to information that's coming in
+    },
+
+    updateAudience(newAudience) {
+        this.setState({ audience: newAudience});
     },
 
     render() {
         return (
             <div>
-                <Header title={this.state.title} status={this.state.status} />
-                <RouteHandler {...this.state} />
+                <Header {...this.state} />
+                <RouteHandler emit={this.emit} {...this.state} />
             </div>
         );
     }
